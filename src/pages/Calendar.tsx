@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ArrowLeft, Trash2, Play } from "lucide-react";
+import { api, getLocalUserId, type Goal } from "@/lib/api";
 
 interface Task {
   id: number;
@@ -26,15 +27,34 @@ export default function Calendar() {
     };
     checkAuth();
 
-    const storedTasks = JSON.parse(localStorage.getItem("studyTasks") || "[]");
-    setTasks(storedTasks);
+    const loadGoals = async () => {
+      try {
+        const userId = getLocalUserId();
+        const goals = await api.getGoals(userId);
+        const mapped: Task[] = goals.map((g: Goal) => ({
+          id: g.GoalID,
+          taskName: g.Title,
+          studyDateTime: g.DueDate,
+          completed: false,
+        }));
+        setTasks(mapped);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load goals from local SQL API. Is the server running?");
+      }
+    };
+    loadGoals();
   }, [navigate]);
 
-  const deleteTask = (id: number) => {
-    const updatedTasks = tasks.filter(task => task.id !== id);
-    setTasks(updatedTasks);
-    localStorage.setItem("studyTasks", JSON.stringify(updatedTasks));
-    toast.success("Task deleted");
+  const deleteTask = async (id: number) => {
+    try {
+      await api.deleteGoal(id);
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Task deleted");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete goal");
+    }
   };
 
   const startStudySession = (task: Task) => {

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Calendar, BookOpen, LogOut, Clock } from "lucide-react";
+import { api, getLocalUserId } from "@/lib/api";
 
 export default function Dashboard() {
   const [taskName, setTaskName] = useState("");
@@ -34,7 +35,7 @@ export default function Dashboard() {
     navigate("/auth");
   };
 
-  const startSession = () => {
+  const startSession = async () => {
     if (taskName && studyDate && studyHour && studyMinute) {
       const hours = parseInt(studyHour, 10);
       const minutes = parseInt(studyMinute, 10);
@@ -47,19 +48,20 @@ export default function Dashboard() {
       if (selectedDateTime < now) {
         toast.error("You cannot schedule a task in the past");
       } else {
-        const newTask = {
-          taskName,
-          studyDateTime,
-          completed: false,
-          id: new Date().getTime(),
-        };
-
-        const tasks = JSON.parse(localStorage.getItem("studyTasks") || "[]");
-        tasks.push(newTask);
-        localStorage.setItem("studyTasks", JSON.stringify(tasks));
-
-        toast.success(`Scheduled: ${taskName} for ${studyDate} at ${studyHour}:${studyMinute} ${amPm}`);
-        navigate("/calendar");
+        try {
+          const userId = getLocalUserId();
+          await api.addGoal({
+            Title: taskName,
+            Description: "Scheduled via Dashboard",
+            DueDate: selectedDateTime.toISOString(),
+            UserID: userId,
+          });
+          toast.success(`Scheduled: ${taskName} for ${studyDate} at ${studyHour}:${studyMinute} ${amPm}`);
+          navigate("/calendar");
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to save to local SQL API. Is the server running?");
+        }
       }
     } else {
       toast.error("Please fill in all fields");
